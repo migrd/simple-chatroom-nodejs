@@ -1,14 +1,29 @@
 const express = require("express");
-const usersRouter = require("./routes/users");
+const https = require("https");
+const fs = require("fs");
+const socketIo = require("socket.io");
+const xss = require("xss");
+
+const options = {
+  key: fs.readFileSync("key.pem"),
+  cert: fs.readFileSync("cert.pem"),
+  passphrase: "",
+};
+
 const app = express();
-const port = 3000;
+const server = https.createServer(options, app);
+const io = socketIo(server);
 
-app.get("/", (req, res) => {
-  res.send("Hello World!");
+app.use(express.static("public"));
+
+io.on("connection", (socket) => {
+  socket.on("chat message", (msg) => {
+    const cleanMessage = xss(msg);
+    io.emit("chat message", cleanMessage);
+  });
 });
 
-app.use("/users", usersRouter);
-
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
-});
+const port = process.env.PORT || 3000;
+server.listen(port, () =>
+  console.log(`Secure chatroom running on port ${port}.`),
+);
